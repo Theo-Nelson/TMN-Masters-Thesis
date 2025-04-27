@@ -1,0 +1,21 @@
+{
+  "rotation_deg": 267.8,
+  "shift_pixels_yx": [
+    274.9,
+    -906.3
+  ],
+  "shift_pixels_xy": [
+    -906.3,
+    274.9
+  ],
+  "shift_microns_xy": [
+    -18126.0,
+    5498.0
+  ],
+  "downsample_factor": 20,
+  "mpp": 20.0,
+  "raster_origin": [
+    150.0,
+    30168.0
+  ]
+}
