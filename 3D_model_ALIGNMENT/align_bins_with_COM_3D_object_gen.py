@@ -1,0 +1,122 @@
+import os
+import pandas as pd
+import numpy as np
+import scanpy as sc
+import matplotlib.pyplot as plt
+import json
+from math import radians, cos, sin
+import plotly.express as px
+
+# === Config
+input_folder = "split_hearts_kmeans_all"
+com_csv = "HE_segmented_ab3_hole1000_morph18/COM_coordinates.csv"
+registration_folder = "registration_outputs"
+output_plot_folder = "WT_COM_centered_alignment"
+output_3d_key = "spatial_3D"
+os.makedirs(output_plot_folder, exist_ok=True)
+
+# WT slices in order
+slices = [
+    "WT_D1_heart_34",
+    "WT_D1_heart_35",
+    "WT_D1_heart_36",
+    "WT_D1_heart_37",
+    "WT_A1_heart_38",
+    "WT_A1_heart_47",
+    "WT_A1_heart_49",
+    "WT_A1_heart_50"
+]
+
+# Convert to z microns using numeric slice number
+def extract_slice_number(s):
+    return int(s.split("_")[-1])
+
+slice_z = {sid: extract_slice_number(sid) * 5 for sid in slices}
+
+com_df = pd.read_csv(com_csv).set_index("heart_id")
+com_bins = {}
+com_bin_indices = {}
+coords_raw = {}
+aligned_coords = {}
+
+# Load adatas
+adatas = {}
+for sid in slices:
+    adata = sc.read_h5ad(os.path.join(input_folder, f"{sid}.h5ad"))
+    coords = adata.obsm["spatial"]
+    coords_raw[sid] = coords
+    adatas[sid] = adata
+    com = np.array([com_df.loc[sid, "COM_x"], com_df.loc[sid, "COM_y"]])
+    nearest_idx = np.argmin(np.linalg.norm(coords - com, axis=1))
+    com_bins[sid] = coords[nearest_idx]
+    com_bin_indices[sid] = nearest_idx
+
+# Helper: apply rotation
+
+def rotate_coords(coords, angle_deg, origin):
+    theta = radians(angle_deg)
+    R = np.array([[cos(theta), -sin(theta)], [sin(theta), cos(theta)]])
+    return (R @ (coords - origin).T).T + origin
+
+# Rotation chain
+root = slices[0]
+aligned_coords[root] = coords_raw[root]
+
+pairwise_folders = {
+    ("WT_D1_heart_35", "WT_D1_heart_34"): "WT_D1_WT_D1_heart_34_to_WT_D1_heart_35",
+    ("WT_D1_heart_36", "WT_D1_heart_35"): "WT_D1_WT_D1_heart_35_to_WT_D1_heart_36",
+    ("WT_D1_heart_37", "WT_D1_heart_36"): "WT_D1_WT_D1_heart_36_to_WT_D1_heart_37",
+    ("WT_A1_heart_38", "WT_D1_heart_37"): "WT_cross_37_to_38",
+    ("WT_A1_heart_47", "WT_A1_heart_38"): "WT_A1_WT_A1_heart_38_to_WT_A1_heart_47",
+    ("WT_A1_heart_49", "WT_A1_heart_47"): "WT_A1_WT_A1_heart_47_to_WT_A1_heart_49",
+    ("WT_A1_heart_50", "WT_A1_heart_49"): "WT_A1_WT_A1_heart_49_to_WT_A1_heart_50"
+}
+
+for sid in slices[1:]:
+    coords = coords_raw[sid]
+    chain = []
+    current = sid
+
+    while current != root:
+        for (child, parent), folder in pairwise_folders.items():
+            if child == current:
+                with open(os.path.join(registration_folder, folder, "alignment_params.json")) as f:
+                    params = json.load(f)
+                angle = -params["rotation_deg"]
+                origin = np.array(params["raster_origin"])
+                chain.append((angle, origin))
+                current = parent
+                break
+
+    for angle, origin in reversed(chain):
+        coords = rotate_coords(coords, angle, origin)
+
+    aligned_coords[sid] = coords
+
+# Translate by COM bin and save spatial_3D
+ref_com_bin = aligned_coords[root][com_bin_indices[root]]
+
+for sid in slices:
+    coords = aligned_coords[sid]
+    delta = coords[com_bin_indices[sid]] - ref_com_bin
+    aligned_3d = np.column_stack((coords - delta, np.full(len(coords), slice_z[sid])))
+    adatas[sid].obsm[output_3d_key] = aligned_3d
+    adatas[sid].write(os.path.join(output_plot_folder, f"{sid}_3D_aligned.h5ad"))
+
+# Visualize 1% subset of 3D bins
+points = []
+for sid in slices:
+    ad = sc.read_h5ad(os.path.join(output_plot_folder, f"{sid}_3D_aligned.h5ad"))
+    coords = ad.obsm[output_3d_key]
+    idx = np.random.choice(len(coords), size=max(1, len(coords) // 100), replace=False)
+    for i in idx:
+        points.append({"x": coords[i, 0], "y": coords[i, 1], "z": coords[i, 2], "slice": sid.split("_")[-1]})
+
+df = pd.DataFrame(points)
+fig = px.scatter_3d(df, x="x", y="y", z="z", color="slice", opacity=0.6, height=800)
+fig.update_traces(marker=dict(size=2))
+fig.update_layout(title="WT 3D-registered Bin Positions", scene=dict(zaxis_title="Z (microns)"))
+fig.write_html(os.path.join(output_plot_folder, "WT_COM_bin_3D_alignment_confirmed.html"))
+
+print("\n✅ Saved updated 3D spatial adatas and confirmed with interactive 3D plot.")
+
