@@ -1,0 +1,11 @@
+{
+  "rotation_deg": 80.2,
+  "shift_pixels_yx": [
+    -485.0,
+    206.3
+  ],
+  "shift_pixels_xy": [
+    206.3,
+    -485.0
+  ]
+}
