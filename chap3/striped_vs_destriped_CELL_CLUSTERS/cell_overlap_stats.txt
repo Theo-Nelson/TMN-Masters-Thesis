@@ -1,0 +1,11 @@
+🔗 Shared cells used in comparison (≤ 10.0 µm): 357179
+📦 Total striped cells: 372728
+📦 Total destriped cells: 402346
+❌ Striped-only cells excluded: 15549
+❌ Destriped-only cells excluded: 45167
+
+🔍 Shared primary cells (within threshold): 357179 / 359513
+🔍 Shared secondary cells (within threshold): 0 / 12401
+
+📐 Avg Euclidean distance between matched spatial coords: 1.92 µm
+📐 Max Euclidean distance among matched: 10.00 µm
