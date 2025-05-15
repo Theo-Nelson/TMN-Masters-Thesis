@@ -1,0 +1,9 @@
+sample,source,n_cells,mean_total_counts,mean_n_genes_by_counts,n_primary,n_secondary
+WT_A1,striped,146106,NA,NA,109850,36256
+WT_A1,destriped,132373,NA,NA,109850,22523
+WT_D1,striped,165788,NA,NA,123788,42000
+WT_D1,destriped,146665,NA,NA,123788,22877
+VSNL1_MUT_A1,striped,151779,NA,NA,109275,42504
+VSNL1_MUT_A1,destriped,123311,NA,NA,109275,14036
+VSNL1_MUT_D1,striped,135621,NA,NA,80060,55561
+VSNL1_MUT_D1,destriped,108223,NA,NA,80060,28163
